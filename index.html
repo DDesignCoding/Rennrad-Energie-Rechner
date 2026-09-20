@@ -333,6 +333,65 @@
     }
     details ul { padding-left: 20px; }
 
+    .profile-details {
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    .profile-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin: 0;
+      list-style: none;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .profile-summary::-webkit-details-marker { display: none; }
+    .profile-summary::marker { content: ""; }
+
+    .profile-summary-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      font-size: 1.58rem;
+      letter-spacing: -0.03em;
+      font-weight: 950;
+    }
+
+    .profile-summary-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 0 0 auto;
+    }
+
+    .profile-saved-badge {
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #eee9ff;
+      color: #5d4d9e;
+      font-size: .76rem;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .profile-chevron {
+      display: inline-block;
+      font-size: 1.15rem;
+      line-height: 1;
+      transition: transform .18s ease;
+      transform: rotate(180deg);
+    }
+
+    .profile-details[open] .profile-chevron { transform: rotate(0deg); }
+
+    .profile-content { padding-top: 22px; }
+
     .advanced-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -356,6 +415,8 @@
       .result-value { min-width: 0; max-width: 100%; white-space: nowrap; }
       .mini-stats { grid-template-columns: 1fr; }
       .save-strip { align-items: flex-start; }
+      .profile-summary-title { font-size: 1.35rem; }
+      .profile-saved-badge { display: none; }
     }
 
     @media (max-width: 420px) {
@@ -375,10 +436,18 @@
     </header>
 
     <form id="calculator" novalidate>
-      <section class="card">
-        <h2 class="section-title"><span class="step">1</span> Personendaten</h2>
+      <section class="card profile-card">
+        <details id="profileDetails" class="profile-details" open>
+          <summary class="profile-summary">
+            <span class="profile-summary-title"><span class="step">1</span> Personendaten</span>
+            <span class="profile-summary-meta">
+              <span id="profileSavedBadge" class="profile-saved-badge" hidden>gespeichert</span>
+              <span class="profile-chevron" aria-hidden="true">⌃</span>
+            </span>
+          </summary>
 
-        <div class="grid">
+          <div class="profile-content">
+            <div class="grid">
           <div class="field full">
             <span class="label">Geschlecht</span>
             <div class="segmented">
@@ -414,16 +483,18 @@
           </div>
         </div>
 
-        <div class="save-strip">
-          <div>
-            <div class="label" style="margin:0">Für nächstes Mal speichern</div>
-            <div class="hint">Nur lokal in diesem Browser.</div>
+            <div class="save-strip">
+              <div>
+                <div class="label" style="margin:0">Für nächstes Mal speichern</div>
+                <div class="hint">Nur lokal in diesem Browser.</div>
+              </div>
+              <label class="switch" aria-label="Personendaten lokal speichern">
+                <input id="saveProfile" type="checkbox" />
+                <span class="slider"></span>
+              </label>
+            </div>
           </div>
-          <label class="switch" aria-label="Personendaten lokal speichern">
-            <input id="saveProfile" type="checkbox" />
-            <span class="slider"></span>
-          </label>
-        </div>
+        </details>
       </section>
 
       <section class="card">
@@ -502,7 +573,15 @@
               <input id="efficiency" type="number" min="18" max="30" step="0.1" value="24" />
             </div>
             <div>
-              <label for="grade">Angenommene Ø Steigung/Gefälle</label>
+              <label for="gradeMode">Typische Steigung der Anstiege</label>
+              <select id="gradeMode">
+                <option value="auto" selected>automatisch aus Höhenmeterdichte</option>
+                <option value="manual">manuell festlegen</option>
+              </select>
+              <div id="autoGradeHint" class="hint">Wird aus Höhenmetern und Distanz geschätzt.</div>
+            </div>
+            <div id="gradeManualWrap" hidden>
+              <label for="grade">Manuelle typische Steigung</label>
               <input id="grade" type="number" min="2" max="12" step="0.5" value="5" />
             </div>
             <div>
@@ -510,7 +589,7 @@
               <input id="draftReduction" type="number" min="10" max="60" step="1" value="30" />
             </div>
           </div>
-          <p>Diese Werte sind bewusst editierbar. Ohne Leistungs- oder GPX-Daten müssen Rollwiderstand, Aerodynamik und Verteilung von Steigung/Gefälle geschätzt werden.</p>
+          <p>Die typische Steigung wird standardmäßig aus Höhenmetern pro 100 km geschätzt und kann hier überschrieben werden. Ohne Leistungs- oder GPX-Daten bleiben Rollwiderstand, Aerodynamik und die genaue Verteilung von Steigung/Gefälle Modellannahmen.</p>
         </details>
       </section>
 
@@ -559,6 +638,11 @@
       const descentWrap = $('descentWrap');
       const errorBox = $('errorBox');
       const results = $('results');
+      const profileDetails = $('profileDetails');
+      const profileSavedBadge = $('profileSavedBadge');
+      const gradeMode = $('gradeMode');
+      const gradeManualWrap = $('gradeManualWrap');
+      const autoGradeHint = $('autoGradeHint');
 
       function readDurationHours() {
         const hoursRaw = $('durationHours').value.trim();
@@ -593,6 +677,46 @@
       function mifflinStJeor(sex, age, heightCm, weightKg) {
         const base = 10 * weightKg + 6.25 * heightCm - 5 * age;
         return base + (sex === 'male' ? 5 : -161);
+      }
+
+      function estimateTypicalGrade(ascentM, descentM, distanceKm) {
+        if (!Number.isFinite(distanceKm) || distanceKm <= 0) return 0.05;
+
+        // Primär zählen die positiven Höhenmeter. Bei einer reinen Abfahrt
+        // dienen ersatzweise die negativen Höhenmeter als Geländeanhaltswert.
+        const referenceHm = ascentM > 0 ? ascentM : Math.max(0, descentM);
+        const hmPer100Km = (referenceHm / distanceKm) * 100;
+
+        if (hmPer100Km < 300) return 0.03;
+        if (hmPer100Km < 700) return 0.04;
+        if (hmPer100Km < 1500) return 0.05;
+        if (hmPer100Km < 2500) return 0.06;
+        return 0.07;
+      }
+
+      function updateGradeUi() {
+        const manual = gradeMode.value === 'manual';
+        gradeManualWrap.hidden = !manual;
+
+        if (manual) {
+          autoGradeHint.textContent = 'Automatik deaktiviert; der manuelle Wert wird verwendet.';
+          return;
+        }
+
+        const distanceKm = number('distance');
+        const ascentM = number('ascent');
+        const descentM = sameDescent.checked ? ascentM : number('descent');
+
+        if (!Number.isFinite(distanceKm) || distanceKm <= 0 || !Number.isFinite(ascentM) || ascentM < 0) {
+          autoGradeHint.textContent = 'Wird aus Höhenmetern und Distanz geschätzt.';
+          return;
+        }
+
+        const safeDescent = Number.isFinite(descentM) && descentM >= 0 ? descentM : 0;
+        const grade = estimateTypicalGrade(ascentM, safeDescent, distanceKm);
+        const referenceHm = ascentM > 0 ? ascentM : safeDescent;
+        const hmPer100Km = (referenceHm / distanceKm) * 100;
+        autoGradeHint.textContent = `Automatische Annahme: ${(grade * 100).toFixed(0)} % · ${Math.round(hmPer100Km).toLocaleString('de-DE')} hm/100 km`;
       }
 
       function segmentDistances(totalM, ascentM, descentM, gradeFraction) {
@@ -708,7 +832,12 @@
       function readProfile() {
         try {
           const raw = localStorage.getItem(PROFILE_KEY);
-          if (!raw) return;
+          if (!raw) {
+            profileDetails.open = true;
+            profileSavedBadge.hidden = true;
+            return false;
+          }
+
           const p = JSON.parse(raw);
           if (p.sex) $(p.sex === 'male' ? 'male' : 'female').checked = true;
           if (p.age) $('age').value = p.age;
@@ -716,14 +845,21 @@
           if (p.weight) $('weight').value = p.weight;
           if (p.equipment) $('equipment').value = p.equipment;
           $('saveProfile').checked = true;
+          profileSavedBadge.hidden = false;
+          profileDetails.open = false;
+          return true;
         } catch (_) {
           localStorage.removeItem(PROFILE_KEY);
+          profileDetails.open = true;
+          profileSavedBadge.hidden = true;
+          return false;
         }
       }
 
       function persistProfile() {
         if (!$('saveProfile').checked) {
           localStorage.removeItem(PROFILE_KEY);
+          profileSavedBadge.hidden = true;
           return;
         }
         localStorage.setItem(PROFILE_KEY, JSON.stringify({
@@ -733,14 +869,24 @@
           weight: $('weight').value,
           equipment: $('equipment').value
         }));
+        profileSavedBadge.hidden = false;
       }
 
       sameDescent.addEventListener('change', () => {
         descentWrap.hidden = sameDescent.checked;
+        updateGradeUi();
       });
 
+      gradeMode.addEventListener('change', updateGradeUi);
+      $('distance').addEventListener('input', updateGradeUi);
+      $('ascent').addEventListener('input', updateGradeUi);
+      $('descent').addEventListener('input', updateGradeUi);
+
       $('saveProfile').addEventListener('change', () => {
-        if (!$('saveProfile').checked) localStorage.removeItem(PROFILE_KEY);
+        if (!$('saveProfile').checked) {
+          localStorage.removeItem(PROFILE_KEY);
+          profileSavedBadge.hidden = true;
+        }
       });
 
       form.addEventListener('submit', (event) => {
@@ -760,7 +906,9 @@
         const postureFactor = number('position');
         const crr = number('crr');
         const efficiency = number('efficiency') / 100;
-        const gradeFraction = number('grade') / 100;
+        const gradeFraction = gradeMode.value === 'manual'
+          ? number('grade') / 100
+          : estimateTypicalGrade(ascentM, descentM, distanceKm);
         const draftReduction = number('draftReduction') / 100;
 
         const required = [age, heightCm, bodyWeight, equipmentWeight, distanceKm, ascentM, descentM, durationH, draftingShare, crr, efficiency, gradeFraction, draftReduction];
@@ -774,6 +922,10 @@
         }
         if (draftingShare < 0 || draftingShare > 1) {
           showError('Bitte einen gültigen Windschattenanteil auswählen.');
+          return;
+        }
+        if (gradeMode.value === 'manual' && (gradeFraction < 0.02 || gradeFraction > 0.12)) {
+          showError('Bitte für die typische Steigung einen Wert zwischen 2 und 12 % eingeben.');
           return;
         }
         const avgSpeed = distanceKm / durationH;
@@ -806,6 +958,7 @@
       });
 
       readProfile();
+      updateGradeUi();
     })();
   </script>
 </body>
