@@ -1,1 +1,785 @@
-<h1>Hallo Welt!</h1>
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f4f2ef" />
+  <title>Rennrad-Energie-Rechner</title>
+  <meta name="description" content="Schätzt Aktivkalorien und Tagesenergie aus Personendaten und Rennrad-Tourdaten." />
+  <style>
+    :root {
+      --bg: #f3f1ee;
+      --card: #ffffff;
+      --ink: #111111;
+      --muted: #77716c;
+      --line: #e7e3df;
+      --purple: #c9bcff;
+      --purple-strong: #aa98ff;
+      --coral: #ff5a48;
+      --coral-dark: #e94a39;
+      --danger: #b42318;
+      --shadow: 0 14px 40px rgba(25, 20, 15, 0.06);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-weight: 650;
+    }
+
+    .page {
+      width: min(760px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 34px 0 56px;
+    }
+
+    header {
+      padding: 0 18px 22px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 6vw, 3.15rem);
+      line-height: 0.95;
+      letter-spacing: -0.055em;
+      font-weight: 950;
+    }
+
+    .subtitle {
+      margin: 8px 0 0;
+      max-width: 620px;
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      line-height: 1.08;
+      font-style: italic;
+      font-weight: 850;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 28px 26px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 0 22px;
+      font-size: 1.58rem;
+      letter-spacing: -0.03em;
+      font-weight: 950;
+    }
+
+    .step {
+      display: inline-grid;
+      place-items: center;
+      width: 38px;
+      height: 25px;
+      border-radius: 999px;
+      background: var(--purple);
+      font-size: 0.95rem;
+      font-weight: 950;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px 18px;
+    }
+
+    .field { min-width: 0; }
+    .field.full { grid-column: 1 / -1; }
+
+    label,
+    .label {
+      display: block;
+      margin: 0 0 7px;
+      font-size: 0.98rem;
+      font-weight: 900;
+      letter-spacing: -0.015em;
+    }
+
+    input,
+    select {
+      width: 100%;
+      height: 48px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 14px;
+      font: inherit;
+      font-weight: 720;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+    input::placeholder { color: #b5b0ac; font-style: italic; }
+    input:focus, select:focus {
+      border-color: var(--purple-strong);
+      box-shadow: 0 0 0 4px rgba(170, 152, 255, 0.16);
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .segmented input { position: absolute; opacity: 0; pointer-events: none; }
+    .segmented label {
+      margin: 0;
+      min-height: 54px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 900;
+      transition: border-color .15s ease, color .15s ease, background .15s ease;
+    }
+
+    .segmented input:checked + label {
+      border-color: var(--coral);
+      color: var(--coral);
+      background: rgba(255, 90, 72, 0.035);
+    }
+
+    .switch-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 48px;
+    }
+
+    .switch {
+      position: relative;
+      width: 56px;
+      height: 31px;
+      flex: 0 0 auto;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: #e7e3df;
+      cursor: pointer;
+      transition: .18s ease;
+    }
+    .slider::before {
+      content: "";
+      position: absolute;
+      width: 23px;
+      height: 23px;
+      left: 4px;
+      top: 4px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 2px 6px rgba(0,0,0,.15);
+      transition: .18s ease;
+    }
+    .switch input:checked + .slider { background: var(--purple-strong); }
+    .switch input:checked + .slider::before { transform: translateX(25px); }
+
+    .hint {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.35;
+      font-weight: 600;
+    }
+
+    .save-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 20px;
+      padding: 13px 14px;
+      background: #eee9ff;
+      border-radius: 10px;
+    }
+
+    .save-strip .hint { margin: 2px 0 0; }
+
+    .calculate {
+      width: 100%;
+      min-height: 56px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--coral);
+      color: white;
+      font: inherit;
+      font-size: 1.1rem;
+      font-weight: 950;
+      letter-spacing: .01em;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(255, 90, 72, .2);
+      transition: transform .12s ease, background .12s ease;
+    }
+    .calculate:hover { background: var(--coral-dark); }
+    .calculate:active { transform: translateY(1px); }
+
+    #errorBox {
+      display: none;
+      margin: 14px 0 0;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #fff0ee;
+      color: var(--danger);
+      font-size: .92rem;
+      font-weight: 750;
+    }
+
+    .results { display: none; }
+    .results.visible { display: block; }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px 18px;
+      align-items: center;
+    }
+
+    .result-label {
+      font-size: 1.05rem;
+      font-weight: 900;
+    }
+
+    .result-value {
+      min-width: 160px;
+      padding: 8px 14px;
+      text-align: center;
+      border-radius: 8px;
+      background: var(--purple);
+      font-size: 1.15rem;
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .result-sub {
+      grid-column: 1 / -1;
+      margin: -2px 0 4px;
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 620;
+    }
+
+    .mini-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .mini {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      text-align: center;
+    }
+    .mini span { display: block; color: var(--muted); font-size: .73rem; font-weight: 650; }
+    .mini strong { display: block; margin-top: 3px; font-size: 1rem; font-weight: 900; }
+
+    details {
+      margin-top: 18px;
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+    }
+    summary { cursor: pointer; font-weight: 900; }
+    details p, details li {
+      color: #4f4a46;
+      font-size: .86rem;
+      line-height: 1.48;
+      font-weight: 560;
+    }
+    details ul { padding-left: 20px; }
+
+    .advanced-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 16px;
+      margin-top: 16px;
+    }
+
+    .advanced-grid label { font-size: .84rem; }
+    .advanced-grid input, .advanced-grid select { height: 42px; font-size: .9rem; }
+
+    .footer-note {
+      padding: 0 12px;
+      color: var(--muted);
+      font-size: .75rem;
+      line-height: 1.45;
+      font-weight: 560;
+    }
+
+    @media (max-width: 620px) {
+      .page { width: min(100% - 18px, 760px); padding-top: 24px; }
+      header { padding-inline: 10px; }
+      .card { padding: 23px 18px; border-radius: 15px; }
+      .grid, .advanced-grid { grid-template-columns: 1fr; }
+      .field.full { grid-column: auto; }
+      .result-value { min-width: 132px; }
+      .mini-stats { grid-template-columns: 1fr; }
+      .save-strip { align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>Rennrad-Energie-Rechner</h1>
+      <p class="subtitle">Berechne deinen Kalorien- und Energieverbrauch beim Rennradfahren.</p>
+    </header>
+
+    <form id="calculator" novalidate>
+      <section class="card">
+        <h2 class="section-title"><span class="step">1</span> Personendaten</h2>
+
+        <div class="grid">
+          <div class="field full">
+            <span class="label">Geschlecht</span>
+            <div class="segmented">
+              <div>
+                <input id="female" type="radio" name="sex" value="female" checked />
+                <label for="female">weiblich</label>
+              </div>
+              <div>
+                <input id="male" type="radio" name="sex" value="male" />
+                <label for="male">männlich</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="age">Alter</label>
+            <input id="age" type="number" min="18" max="100" step="1" inputmode="numeric" placeholder="z. B. 35" required />
+          </div>
+
+          <div class="field">
+            <label for="height">Körpergröße</label>
+            <input id="height" type="number" min="130" max="220" step="1" inputmode="decimal" placeholder="cm" required />
+          </div>
+
+          <div class="field">
+            <label for="weight">Körpergewicht</label>
+            <input id="weight" type="number" min="35" max="250" step="0.1" inputmode="decimal" placeholder="kg" required />
+          </div>
+
+          <div class="field">
+            <label for="equipment">Rad + Ausrüstung</label>
+            <input id="equipment" type="number" min="4" max="40" step="0.1" inputmode="decimal" placeholder="kg" value="10" required />
+          </div>
+        </div>
+
+        <div class="save-strip">
+          <div>
+            <div class="label" style="margin:0">Für nächstes Mal speichern</div>
+            <div class="hint">Nur lokal in diesem Browser.</div>
+          </div>
+          <label class="switch" aria-label="Personendaten lokal speichern">
+            <input id="saveProfile" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title"><span class="step">2</span> Tourdaten</h2>
+
+        <div class="grid">
+          <div class="field">
+            <label for="distance">Kilometer</label>
+            <input id="distance" type="number" min="1" max="1000" step="0.1" inputmode="decimal" placeholder="km" required />
+          </div>
+
+          <div class="field">
+            <label for="ascent">Höhenmeter</label>
+            <input id="ascent" type="number" min="0" max="20000" step="1" inputmode="numeric" placeholder="hm bergauf" required />
+          </div>
+
+          <div class="field full">
+            <div class="switch-row">
+              <label class="switch" aria-label="Anstieg entspricht Abstieg">
+                <input id="sameDescent" type="checkbox" checked />
+                <span class="slider"></span>
+              </label>
+              <div>
+                <div class="label" style="margin:0">Anstieg = Abstieg?</div>
+                <div class="hint">Bei Rundtouren meist passend.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="field full" id="descentWrap" hidden>
+            <label for="descent">Abstieg</label>
+            <input id="descent" type="number" min="0" max="20000" step="1" inputmode="numeric" placeholder="hm bergab" />
+          </div>
+
+          <div class="field">
+            <label for="duration">Bewegungszeit ohne Pause</label>
+            <input id="duration" type="text" inputmode="numeric" placeholder="z. B. 2:45" required />
+            <div class="hint">Format Stunden:Minuten</div>
+          </div>
+
+          <div class="field">
+            <label for="drafting">Zeit im Windschatten</label>
+            <input id="drafting" type="text" inputmode="numeric" placeholder="z. B. 0:30" value="0:00" />
+            <div class="hint">Anteil innerhalb der Bewegungszeit</div>
+          </div>
+
+          <div class="field full">
+            <label for="position">Fahrposition</label>
+            <select id="position">
+              <option value="0.190">eher aufrecht</option>
+              <option value="0.170" selected>normal auf den Hoods</option>
+              <option value="0.155">sportlich/tief</option>
+              <option value="0.145">überwiegend Drops / sehr tief</option>
+            </select>
+            <div class="hint">Verbessert die Abschätzung des Luftwiderstands deutlich.</div>
+          </div>
+        </div>
+
+        <details>
+          <summary>Erweiterte Annahmen</summary>
+          <div class="advanced-grid">
+            <div>
+              <label for="crr">Rollwiderstand Crr</label>
+              <input id="crr" type="number" min="0.002" max="0.012" step="0.0001" value="0.0045" />
+            </div>
+            <div>
+              <label for="efficiency">Netto-Wirkungsgrad</label>
+              <input id="efficiency" type="number" min="18" max="30" step="0.1" value="24" />
+            </div>
+            <div>
+              <label for="grade">Angenommene Ø Steigung/Gefälle</label>
+              <input id="grade" type="number" min="2" max="12" step="0.5" value="5" />
+            </div>
+            <div>
+              <label for="draftReduction">Luftwiderstandsreduktion im Windschatten</label>
+              <input id="draftReduction" type="number" min="10" max="60" step="1" value="30" />
+            </div>
+          </div>
+          <p>Diese Werte sind bewusst editierbar. Ohne Leistungs- oder GPX-Daten müssen Rollwiderstand, Aerodynamik und Verteilung von Steigung/Gefälle geschätzt werden.</p>
+        </details>
+      </section>
+
+      <button class="calculate" type="submit">Kalorienverbrauch ausrechnen</button>
+      <div id="errorBox" role="alert"></div>
+    </form>
+
+    <section id="results" class="card results" aria-live="polite">
+      <h2 class="section-title" style="margin-bottom:20px">Verbrauch</h2>
+      <div class="result-grid">
+        <div class="result-label">Aktivkalorien</div>
+        <div id="activeCalories" class="result-value">–</div>
+        <div class="result-sub">Zusätzlicher Energieverbrauch der Tour oberhalb des Ruheverbrauchs.</div>
+
+        <div class="result-label">Gesamtkalorien/Tag</div>
+        <div id="totalCalories" class="result-value">–</div>
+        <div class="result-sub">Grundumsatz nach Mifflin-St Jeor + Aktivkalorien dieser Tour. Sonstige Alltagsaktivität und Verdauung sind nicht enthalten.</div>
+
+        <div class="result-label">Modellbereich Aktivkalorien</div>
+        <div id="rangeCalories" class="result-value">–</div>
+        <div class="result-sub">Plausibilitätsbereich aus günstigeren/ungünstigeren Annahmen; kein statistisches Konfidenzintervall.</div>
+      </div>
+
+      <div class="mini-stats">
+        <div class="mini"><span>Ø Geschwindigkeit</span><strong id="avgSpeed">–</strong></div>
+        <div class="mini"><span>Ø mechanische Leistung</span><strong id="avgPower">–</strong></div>
+        <div class="mini"><span>geschätztes CdA</span><strong id="cdaOut">–</strong></div>
+      </div>
+
+      <details>
+        <summary>So wird gerechnet</summary>
+        <p>Das Modell teilt die Strecke grob in Anstieg, Abfahrt und flache Strecke. Für jedes Segment werden Schwerkraft, Rollwiderstand und Luftwiderstand berücksichtigt. Auf Abfahrten wird negative erforderliche Antriebsarbeit nicht als Kalorienverbrauch gezählt.</p>
+        <ul>
+          <li>Gesamtmasse = Körpergewicht + Rad/Ausrüstung.</li>
+          <li>CdA wird aus Körperoberfläche und gewählter Fahrposition angenähert.</li>
+          <li>Windschatten reduziert nur den aerodynamischen Anteil.</li>
+          <li>Mechanische Arbeit wird über den eingestellten Netto-Wirkungsgrad in metabolische Aktivenergie umgerechnet.</li>
+          <li>Der Tageswert ist Grundumsatz + diese Tour und damit kein vollständiger TDEE.</li>
+        </ul>
+      </details>
+    </section>
+
+    <p class="footer-note">
+      Näherungsmodell, kein medizinisches Messverfahren. Größte Fehlerquellen sind Wind, tatsächliche Sitzposition/CdA, Straßenbelag/Reifen, Beschleunigungen, Bremsen und die unbekannte Geschwindigkeitsverteilung zwischen Bergauf, Ebene und Abfahrt.
+    </p>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const $ = (id) => document.getElementById(id);
+      const G = 9.80665;
+      const RHO = 1.225;               // kg/m³, Meereshöhe / Standardnähe
+      const DRIVETRAIN_EFF = 0.975;    // vereinfachte Annahme
+      const PROFILE_KEY = 'rrr-person-profile-v1';
+
+      const form = $('calculator');
+      const sameDescent = $('sameDescent');
+      const descentWrap = $('descentWrap');
+      const errorBox = $('errorBox');
+      const results = $('results');
+
+      function parseTime(value) {
+        const text = String(value || '').trim().replace(',', '.');
+        if (!text) return 0;
+
+        if (/^\d+(\.\d+)?$/.test(text)) {
+          return Number(text); // Dezimalstunden werden ebenfalls akzeptiert
+        }
+
+        const match = text.match(/^(\d{1,3}):([0-5]?\d)$/);
+        if (!match) return NaN;
+        return Number(match[1]) + Number(match[2]) / 60;
+      }
+
+      function clamp(x, min, max) {
+        return Math.min(max, Math.max(min, x));
+      }
+
+      function number(id) {
+        return Number($(id).value);
+      }
+
+      function bsaMosteller(heightCm, weightKg) {
+        return Math.sqrt((heightCm * weightKg) / 3600);
+      }
+
+      function estimateCdA(heightCm, weightKg, postureFactor) {
+        const bsa = bsaMosteller(heightCm, weightKg);
+        return clamp(bsa * postureFactor, 0.23, 0.48);
+      }
+
+      function mifflinStJeor(sex, age, heightCm, weightKg) {
+        const base = 10 * weightKg + 6.25 * heightCm - 5 * age;
+        return base + (sex === 'male' ? 5 : -161);
+      }
+
+      function segmentDistances(totalM, ascentM, descentM, gradeFraction) {
+        let up = gradeFraction > 0 ? ascentM / gradeFraction : 0;
+        let down = gradeFraction > 0 ? descentM / gradeFraction : 0;
+        let upSlope = ascentM > 0 ? gradeFraction : 0;
+        let downSlope = descentM > 0 ? gradeFraction : 0;
+
+        // Falls die aus der Standardsteigung abgeleiteten Bergstrecken länger
+        // als die gesamte Tour wären, werden die Distanzen proportional verkürzt
+        // und die Steigungen entsprechend erhöht. So bleibt die eingegebene
+        // Höhenarbeit (m*g*h) erhalten.
+        const hills = up + down;
+        if (hills > totalM && hills > 0) {
+          const scale = totalM / hills;
+          up *= scale;
+          down *= scale;
+          upSlope = up > 0 ? ascentM / up : 0;
+          downSlope = down > 0 ? descentM / down : 0;
+        }
+
+        const flat = Math.max(0, totalM - up - down);
+        return { up, down, flat, upSlope, downSlope };
+      }
+
+      function workForSegment(distanceM, slope, massKg, speedMs, crr, cda) {
+        if (distanceM <= 0 || speedMs <= 0) return 0;
+
+        const theta = Math.atan(slope);
+        const fGravity = massKg * G * Math.sin(theta);
+        const fRolling = crr * massKg * G * Math.cos(theta);
+        const fAero = 0.5 * RHO * cda * speedMs * speedMs;
+        const driveForce = fGravity + fRolling + fAero;
+
+        // Bergab kann Schwerkraft Roll- und Luftwiderstand vollständig decken.
+        // Bremsenergie zählt nicht als vom Fahrer geleistete mechanische Arbeit.
+        return Math.max(0, driveForce) * distanceM;
+      }
+
+      function calculatePhysics(params) {
+        const {
+          bodyWeight, equipmentWeight, heightCm, distanceKm, ascentM, descentM,
+          durationH, draftingH, postureFactor, crr, efficiency, gradeFraction,
+          draftReduction
+        } = params;
+
+        const mass = bodyWeight + equipmentWeight;
+        const totalM = distanceKm * 1000;
+        const speedMs = totalM / (durationH * 3600);
+        const draftShare = clamp(draftingH / durationH, 0, 1);
+
+        const rawCdA = estimateCdA(heightCm, bodyWeight, postureFactor);
+        const effectiveCdA = rawCdA * (1 - draftShare * draftReduction);
+        const seg = segmentDistances(totalM, ascentM, descentM, gradeFraction);
+
+        const wheelWorkJ =
+          workForSegment(seg.up, +seg.upSlope, mass, speedMs, crr, effectiveCdA) +
+          workForSegment(seg.flat, 0, mass, speedMs, crr, effectiveCdA) +
+          workForSegment(seg.down, -seg.downSlope, mass, speedMs, crr, effectiveCdA);
+
+        const crankWorkJ = wheelWorkJ / DRIVETRAIN_EFF;
+        const activeKcal = crankWorkJ / (efficiency * 4184);
+        const avgCrankPowerW = crankWorkJ / (durationH * 3600);
+
+        return {
+          activeKcal,
+          avgCrankPowerW,
+          speedKmh: speedMs * 3.6,
+          rawCdA,
+          effectiveCdA,
+          wheelWorkJ,
+          crankWorkJ,
+          segments: seg
+        };
+      }
+
+      function uncertaintyRange(params) {
+        // Kein Konfidenzintervall: zwei plausible Rand-Szenarien.
+        const low = calculatePhysics({
+          ...params,
+          crr: Math.max(0.0032, params.crr * 0.82),
+          efficiency: Math.min(0.27, params.efficiency + 0.02),
+          postureFactor: params.postureFactor * 0.90,
+          draftReduction: Math.min(0.50, params.draftReduction + 0.10)
+        }).activeKcal;
+
+        const high = calculatePhysics({
+          ...params,
+          crr: Math.min(0.0065, params.crr * 1.22),
+          efficiency: Math.max(0.20, params.efficiency - 0.03),
+          postureFactor: params.postureFactor * 1.12,
+          draftReduction: Math.max(0.15, params.draftReduction - 0.10)
+        }).activeKcal;
+
+        return [Math.min(low, high), Math.max(low, high)];
+      }
+
+      function formatInt(x) {
+        return Math.round(x).toLocaleString('de-DE');
+      }
+
+      function showError(message) {
+        errorBox.textContent = message;
+        errorBox.style.display = 'block';
+        results.classList.remove('visible');
+      }
+
+      function clearError() {
+        errorBox.textContent = '';
+        errorBox.style.display = 'none';
+      }
+
+      function readProfile() {
+        try {
+          const raw = localStorage.getItem(PROFILE_KEY);
+          if (!raw) return;
+          const p = JSON.parse(raw);
+          if (p.sex) $(p.sex === 'male' ? 'male' : 'female').checked = true;
+          if (p.age) $('age').value = p.age;
+          if (p.height) $('height').value = p.height;
+          if (p.weight) $('weight').value = p.weight;
+          if (p.equipment) $('equipment').value = p.equipment;
+          $('saveProfile').checked = true;
+        } catch (_) {
+          localStorage.removeItem(PROFILE_KEY);
+        }
+      }
+
+      function persistProfile() {
+        if (!$('saveProfile').checked) {
+          localStorage.removeItem(PROFILE_KEY);
+          return;
+        }
+        localStorage.setItem(PROFILE_KEY, JSON.stringify({
+          sex: document.querySelector('input[name="sex"]:checked').value,
+          age: $('age').value,
+          height: $('height').value,
+          weight: $('weight').value,
+          equipment: $('equipment').value
+        }));
+      }
+
+      sameDescent.addEventListener('change', () => {
+        descentWrap.hidden = sameDescent.checked;
+      });
+
+      $('saveProfile').addEventListener('change', () => {
+        if (!$('saveProfile').checked) localStorage.removeItem(PROFILE_KEY);
+      });
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        clearError();
+
+        const sex = document.querySelector('input[name="sex"]:checked').value;
+        const age = number('age');
+        const heightCm = number('height');
+        const bodyWeight = number('weight');
+        const equipmentWeight = number('equipment');
+        const distanceKm = number('distance');
+        const ascentM = number('ascent');
+        const descentM = sameDescent.checked ? ascentM : number('descent');
+        const durationH = parseTime($('duration').value);
+        const draftingH = parseTime($('drafting').value);
+        const postureFactor = number('position');
+        const crr = number('crr');
+        const efficiency = number('efficiency') / 100;
+        const gradeFraction = number('grade') / 100;
+        const draftReduction = number('draftReduction') / 100;
+
+        const required = [age, heightCm, bodyWeight, equipmentWeight, distanceKm, ascentM, descentM, durationH, draftingH, crr, efficiency, gradeFraction, draftReduction];
+        if (required.some((x) => !Number.isFinite(x))) {
+          showError('Bitte alle Felder mit gültigen Zahlen ausfüllen. Zeiten z. B. als 2:45 eingeben.');
+          return;
+        }
+        if (age < 18 || heightCm < 130 || bodyWeight <= 0 || equipmentWeight <= 0 || distanceKm <= 0 || durationH <= 0) {
+          showError('Bitte prüfe Alter, Größe, Gewichte, Distanz und Bewegungszeit.');
+          return;
+        }
+        if (draftingH < 0 || draftingH > durationH) {
+          showError('Die Zeit im Windschatten darf nicht länger als die Bewegungszeit sein.');
+          return;
+        }
+        const avgSpeed = distanceKm / durationH;
+        if (avgSpeed < 5 || avgSpeed > 70) {
+          showError('Die eingegebene Distanz und Zeit ergeben eine unplausible Durchschnittsgeschwindigkeit.');
+          return;
+        }
+
+        const params = {
+          bodyWeight, equipmentWeight, heightCm, distanceKm, ascentM, descentM,
+          durationH, draftingH, postureFactor, crr, efficiency, gradeFraction,
+          draftReduction
+        };
+
+        const calc = calculatePhysics(params);
+        const [low, high] = uncertaintyRange(params);
+        const rmr = mifflinStJeor(sex, age, heightCm, bodyWeight);
+        const totalDay = rmr + calc.activeKcal;
+
+        $('activeCalories').textContent = `${formatInt(calc.activeKcal)} kcal`;
+        $('totalCalories').textContent = `${formatInt(totalDay)} kcal`;
+        $('rangeCalories').textContent = `${formatInt(low)}–${formatInt(high)} kcal`;
+        $('avgSpeed').textContent = `${calc.speedKmh.toFixed(1).replace('.', ',')} km/h`;
+        $('avgPower').textContent = `${formatInt(calc.avgCrankPowerW)} W`;
+        $('cdaOut').textContent = `${calc.rawCdA.toFixed(3).replace('.', ',')} m²`;
+
+        persistProfile();
+        results.classList.add('visible');
+        results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+
+      readProfile();
+    })();
+  </script>
+</body>
+</html>
